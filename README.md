@@ -1,3 +1,3 @@
-# Runpod
-repo for Runpod code
+# llama.cpp
+repo for runpod code
 

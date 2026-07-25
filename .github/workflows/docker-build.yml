@@ -1,8 +1,18 @@
 name: Build and push quill-llamacpp
 
+# Fix 2026-07-25: the old workflow hard-coded a single magic tag (b9804) that was
+# never actually produced on ghcr, so fleet.py could reference an image that did
+# not exist -> RunPod instant-exit. Tags are now DERIVED FROM GIT, so any tag a
+# consumer pins is guaranteed to have been built by the run that created it:
+#   * every push to main  -> :latest and :sha-<short>   (immutable, always exists)
+#   * pushing a git tag bN -> :bN                        (the release tag == image tag)
+# Release flow: git tag b9805 && git push origin b9805  -> ghcr :b9805 built, THEN
+# bump fleet.py GGUF_IMAGE to that tag. Never bump the pin before the run is green.
+
 on:
   push:
     branches: [main]
+    tags: ['b*', 'v*']
   workflow_dispatch:
 
 jobs:
@@ -14,6 +24,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Compute image tags (git-driven — a referenced tag always exists)
+        id: meta
+        run: |
+          IMG="ghcr.io/ghostsystemsai/quill-llamacpp"
+          SHORT="$(git rev-parse --short HEAD)"
+          TAGS="${IMG}:sha-${SHORT},${IMG}:latest"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAGS="${TAGS},${IMG}:${GITHUB_REF_NAME}"
+          fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+          echo "Building and pushing: ${TAGS}"
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -31,6 +53,4 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
-          tags: |
-            ghcr.io/ghostsystemsai/quill-llamacpp:b9804
-            ghcr.io/ghostsystemsai/quill-llamacpp:latest
+          tags: ${{ steps.meta.outputs.tags }}

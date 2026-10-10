@@ -1,4 +1,9 @@
-FROM ghcr.io/ggml-org/llama.cpp:server-cuda
+# PINNED upstream build (A483 s5, 2026-10-10): the floating `server-cuda` tag made our own :bN tag a
+# lie -- b9803 was whatever server-cuda was on 2026-06-26 and cannot load the Nemotron 3.5 hybrid GGUF
+# ("wrong number of tensors; expected 417, got 408", A478). b11541 is the newest upstream CUDA image and
+# carries the Nemotron 3.5 Lightning conversion fix (#27729) + Nemotron MTP support (#29018).
+# Bump flow: change this FROM, commit, `git tag b<N> && git push origin b<N>`; ghcr :b<N> == upstream b<N>.
+FROM ghcr.io/ggml-org/llama.cpp:server-cuda-b11541
 # Blank the baked-in ENTRYPOINT so RunPod's dockerArgs runs as CMD (bash -c "...").
 # The upstream image has ENTRYPOINT ["/app/llama-server"] which swallows our startup
 # script as arguments to llama-server -> immediate arg-parse error -> crash-loop.
